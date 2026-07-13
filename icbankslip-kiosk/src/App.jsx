@@ -3,6 +3,7 @@ import './App.css'
 import { QRCodeCanvas } from 'qrcode.react'
 import logo from './assets/logo.png'
 import { supabase } from './lib/supabase'
+import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
 
 function App() {
 
@@ -50,6 +51,190 @@ function App() {
 
     return data.signedUrl
   }
+
+  const downloadFiles = async (submission) => {
+
+    const icFrontUrl = await getFileUrl(submission.ic_front_path)
+    const icBackUrl = await getFileUrl(submission.ic_back_path)
+    const bankSlipUrl = await getFileUrl(submission.bank_slip_path)
+
+    const icFrontBlob = await (await fetch(icFrontUrl)).blob()
+    const icBackBlob = await (await fetch(icBackUrl)).blob()
+    const bankSlipBlob = await (await fetch(bankSlipUrl)).blob()
+
+    return {
+      icFrontBlob,
+      icBackBlob,
+      bankSlipBlob
+    }
+  }
+
+  const embedImage = async (pdfDoc, blob) => {
+
+    const bytes = await blob.arrayBuffer()
+
+    try {
+      // Try PNG first
+      return await pdfDoc.embedPng(bytes)
+
+    } catch (pngError) {
+
+      // If not PNG, try JPG
+      return await pdfDoc.embedJpg(bytes)
+
+    }
+  }
+
+  const createPDF = async (files) => {
+
+    const pdfDoc = await PDFDocument.create()
+
+
+    // A4 size
+    const A4_WIDTH = 595
+    const A4_HEIGHT = 842
+
+
+    /*
+      PAGE 1
+      IC Front + IC Back
+    */
+
+    const page1 = pdfDoc.addPage([
+      A4_WIDTH,
+      A4_HEIGHT
+    ])
+
+
+    // IC Front
+    const icFrontImage = await embedImage(
+      pdfDoc,
+      files.icFrontBlob
+    )
+
+    const frontWidth = 400
+    const frontHeight =
+      (icFrontImage.height / icFrontImage.width) * frontWidth
+
+
+    // IC Front (top half)
+    page1.drawImage(icFrontImage, {
+      x: (A4_WIDTH - frontWidth) / 2,
+      y: (A4_HEIGHT / 2) + 100,
+      width: frontWidth,
+      height: frontHeight
+    })
+
+
+    // IC Back
+    const icBackImage = await embedImage(
+      pdfDoc,
+      files.icBackBlob
+    )
+
+
+    const backWidth = 400
+    const backHeight =
+      (icBackImage.height / icBackImage.width) * backWidth
+
+
+    // IC Back (bottom half)
+    page1.drawImage(icBackImage, {
+      x: (A4_WIDTH - backWidth) / 2,
+      y: 100,
+      width: backWidth,
+      height: backHeight
+    })
+
+    const font = await pdfDoc.embedFont(
+      StandardFonts.Helvetica
+    )
+
+
+    // IC Front watermark
+    page1.drawText("Nirvana Usage Only", {
+      x: 150,
+      y: 600,
+      size: 40,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+      opacity: 0.3,
+      rotate: degrees(45)
+    })
+
+
+    // IC Back watermark
+    page1.drawText("Nirvana Usage Only", {
+      x: 150,
+      y: 200,
+      size: 40,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+      opacity: 0.3,
+      rotate: degrees(45)
+    })
+
+
+    /*
+      PAGE 2
+      Bank Slip PDF
+    */
+
+    const bankPdfBytes = await files.bankSlipBlob.arrayBuffer()
+
+    const bankPdf = await PDFDocument.load(bankPdfBytes)
+
+    const copiedPages = await pdfDoc.copyPages(
+      bankPdf,
+      bankPdf.getPageIndices()
+    )
+
+
+    copiedPages.forEach((page) => {
+      pdfDoc.addPage(page)
+    })
+
+    const pages = pdfDoc.getPages()
+
+    const bankFont = await pdfDoc.embedFont(
+      StandardFonts.Helvetica
+    )
+
+
+    // Start from page 2
+    for (let i = 1; i < pages.length; i++) {
+
+      const page = pages[i]
+
+      const { width, height } = page.getSize()
+
+      const text = "Nirvana Usage Only"
+      const fontSize = 60
+
+      const textWidth = bankFont.widthOfTextAtSize(
+        text,
+        fontSize
+      )
+
+      page.drawText(text, {
+        x: width / 2 - 150,
+        y: height / 2 + 150,
+        size: fontSize,
+        font: bankFont,
+        color: rgb(0.3, 0.3, 0.3),
+        opacity: 0.3,
+        rotate: degrees(-45)
+      })
+
+    }
+
+
+    const finalPdf = await pdfDoc.save()
+
+    return finalPdf
+  }
+
+
 
 
   return (
@@ -118,25 +303,24 @@ function App() {
               <button
                 onClick={async () => {
 
-                  const files = [
-                    result.ic_front_path,
-                    result.ic_back_path,
-                    result.bank_slip_path
-                  ]
+                  const files = await downloadFiles(result)
 
-                  for (const file of files) {
+                  console.log("Downloaded files:", files)
 
-                    const url = await getFileUrl(file)
+                  const pdf = await createPDF(files)
 
-                    if (url) {
-                      window.open(url, "_blank")
-                    }
+                  const blob = new Blob(
+                    [pdf],
+                    { type: "application/pdf" }
+                  )
 
-                  }
+                  const url = URL.createObjectURL(blob)
+                  console.log("Generated new PDF")
+                  window.open(url, "_blank", "noopener,noreferrer")
 
                 }}
               >
-                Download All Documents
+                Download All Files
               </button>
 
             </div>
