@@ -1,121 +1,152 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
 import './App.css'
+import { QRCodeCanvas } from 'qrcode.react'
+import logo from './assets/logo.png'
+import { supabase } from './lib/supabase'
 
 function App() {
-  const [count, setCount] = useState(0)
+
+  const [reference, setReference] = useState('')
+
+  const [result, setResult] = useState(null)
+  const handleSearch = async () => {
+
+    const { data, error } = await supabase
+      .from('submissions')
+      .select('*')
+      .eq('qrcode', reference)
+      .maybeSingle()
+
+    if (error) {
+      console.error("Search error:", error)
+      return
+    }
+
+    if (!data) {
+      console.log("No document found")
+      setResult(null)
+      return
+    }
+
+    console.log("Found:", data)
+
+    setResult(data)
+  }
+
+  const getFileUrl = async (path) => {
+
+    console.log("Trying download path:", path)
+
+    const { data, error } = await supabase.storage
+      .from('uploads')
+      .createSignedUrl(path, 60)
+
+    console.log("Signed URL result:", data, error)
+
+    if (error) {
+      console.error("Download error:", error)
+      return null
+    }
+
+    return data.signedUrl
+  }
+
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
+    <div className="kiosk-container">
+
+      <div className="kiosk-card">
+
+        {/* Left Side */}
+        <div className="left-panel">
+
+          <h2>
+            Scan QR Code to upload your document
+          </h2>
+
+          <QRCodeCanvas
+            value="https://icbankslip-kiosk.vercel.app"
+            size={220}
+          />
+
           <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+            Scan using your phone camera
           </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+
+        {/* Right Side */}
+        <div className="right-panel">
+
+          <img
+            src={logo}
+            alt="Logo"
+            className="logo"
+          />
+
+          <h3>
+            Bandar Dato Onn
+          </h3>
+
+          <h2>
+            Enter your qrcode
+          </h2>
+
+          <div className="search-box">
+
+            <input
+              type="text"
+              placeholder="NIR-XXXXXXXX"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+            />
+
+            <button onClick={handleSearch}>
+              Search
+            </button>
+
+          </div>
+
+          {result && (
+            <div>
+
+              <h3>Document Found</h3>
+
+              <p>Status: {result.status}</p>
+
+              <button
+                onClick={async () => {
+
+                  const files = [
+                    result.ic_front_path,
+                    result.ic_back_path,
+                    result.bank_slip_path
+                  ]
+
+                  for (const file of files) {
+
+                    const url = await getFileUrl(file)
+
+                    if (url) {
+                      window.open(url, "_blank")
+                    }
+
+                  }
+
+                }}
+              >
+                Download All Documents
+              </button>
+
+            </div>
+          )}
+
+        </div>
+
+      </div>
+
+    </div>
   )
 }
 
