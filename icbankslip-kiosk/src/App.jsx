@@ -321,11 +321,12 @@ function App() {
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               onBlur={focusInput}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleSearch()
+                }
+              }}
             />
-
-            <button onClick={handleSearch}>
-              Search
-            </button>
 
           </div>
 
