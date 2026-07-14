@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import { QRCodeCanvas } from 'qrcode.react'
 import logo from './assets/logo.png'
@@ -8,8 +8,15 @@ import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
 function App() {
 
   const [reference, setReference] = useState('')
-
   const [result, setResult] = useState(null)
+  const focusInput = () => {
+    setTimeout(() => {
+      inputRef.current?.focus()
+    }, 100)
+  }
+
+  useEffect(() => { focusInput() }, [])
+  const inputRef = useRef(null)
   const handleSearch = async () => {
 
     const { data, error } = await supabase
@@ -32,6 +39,7 @@ function App() {
     console.log("Found:", data)
 
     setResult(data)
+    inputRef.current?.focus()
   }
 
   const getFileUrl = async (path) => {
@@ -306,10 +314,13 @@ function App() {
           <div className="search-box">
 
             <input
+              ref={inputRef}
+              autoFocus
               type="text"
               placeholder="NIR-XXXXXXXX"
               value={reference}
               onChange={(e) => setReference(e.target.value)}
+              onBlur={focusInput}
             />
 
             <button onClick={handleSearch}>
