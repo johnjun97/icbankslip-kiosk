@@ -74,3 +74,20 @@ body {
   background: #1565c0;
 }
 
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.loading-box {
+  background: white;
+  padding: 25px 40px;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: bold;
+}

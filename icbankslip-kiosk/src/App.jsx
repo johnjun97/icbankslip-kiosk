@@ -8,15 +8,21 @@ import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
 function App() {
 
   const [reference, setReference] = useState('')
-  const [result, setResult] = useState(null)
-  const focusInput = () => {
-    setTimeout(() => {
-      inputRef.current?.focus()
-    }, 100)
-  }
+  const [message, setMessage] = useState('')
+  const [downloading, setDownloading] = useState(false)
 
-  useEffect(() => { focusInput() }, [])
-  const inputRef = useRef(null)
+const inputRef = useRef(null)
+
+const focusInput = () => {
+  setTimeout(() => {
+    inputRef.current?.focus()
+  }, 100)
+}
+
+useEffect(() => {
+  focusInput()
+}, [])
+
   const handleSearch = async () => {
 
     const { data, error } = await supabase
@@ -32,13 +38,17 @@ function App() {
 
     if (!data) {
       console.log("No document found")
-      setResult(null)
+      setMessage("Document not found")
+      inputRef.current?.focus()
       return
     }
 
     console.log("Found:", data)
+    setReference('')
+    setMessage('')
 
-    setResult(data)
+    await handleDownload(data)
+
     inputRef.current?.focus()
   }
 
@@ -267,10 +277,48 @@ function App() {
     return finalPdf
   }
 
+  const handleDownload = async (submission) => {
 
+  setDownloading(true)
+  setMessage('')
 
+  try {
+
+    const files = await downloadFiles(submission)
+
+    const pdf = await createPDF(files)
+
+    const blob = new Blob(
+      [pdf],
+      { type: "application/pdf" }
+    )
+
+    const url = URL.createObjectURL(blob)
+
+    window.open(url, "_blank", "noopener,noreferrer")
+
+  } catch (error) {
+
+    console.error(error)
+    setMessage("Failed to generate document")
+
+  } finally {
+
+    setDownloading(false)
+
+  }
+}
 
   return (
+      <>
+    {downloading && (
+      <div className="loading-overlay">
+        <div className="loading-box">
+          Preparing document...
+        </div>
+      </div>
+    )}
+
     <div className="kiosk-container">
 
       <div className="kiosk-card">
@@ -330,36 +378,9 @@ function App() {
 
           </div>
 
-          {result && (
+          {message && (
             <div>
-
-              <h3>Document Found</h3>
-
-              <p>Status: {result.status}</p>
-
-              <button
-                onClick={async () => {
-
-                  const files = await downloadFiles(result)
-
-                  console.log("Downloaded files:", files)
-
-                  const pdf = await createPDF(files)
-
-                  const blob = new Blob(
-                    [pdf],
-                    { type: "application/pdf" }
-                  )
-
-                  const url = URL.createObjectURL(blob)
-                  console.log("Generated new PDF")
-                  window.open(url, "_blank", "noopener,noreferrer")
-
-                }}
-              >
-                Download All Files
-              </button>
-
+              <h3>{message}</h3>
             </div>
           )}
 
@@ -368,6 +389,8 @@ function App() {
       </div>
 
     </div>
+
+    </>
   )
 }
 
