@@ -54,13 +54,28 @@ function App() {
 
   const downloadFiles = async (submission) => {
 
-    const icFrontUrl = await getFileUrl(submission.ic_front_path)
-    const icBackUrl = await getFileUrl(submission.ic_back_path)
-    const bankSlipUrl = await getFileUrl(submission.bank_slip_path)
+    let icFrontBlob = null
+    let icBackBlob = null
+    let bankSlipBlob = null
 
-    const icFrontBlob = await (await fetch(icFrontUrl)).blob()
-    const icBackBlob = await (await fetch(icBackUrl)).blob()
-    const bankSlipBlob = await (await fetch(bankSlipUrl)).blob()
+
+    if (submission.ic_front_path) {
+      const url = await getFileUrl(submission.ic_front_path)
+      icFrontBlob = await (await fetch(url)).blob()
+    }
+
+
+    if (submission.ic_back_path) {
+      const url = await getFileUrl(submission.ic_back_path)
+      icBackBlob = await (await fetch(url)).blob()
+    }
+
+
+    if (submission.bank_slip_path) {
+      const url = await getFileUrl(submission.bank_slip_path)
+      bankSlipBlob = await (await fetch(url)).blob()
+    }
+
 
     return {
       icFrontBlob,
@@ -107,72 +122,79 @@ function App() {
 
 
     // IC Front
-    const icFrontImage = await embedImage(
-      pdfDoc,
-      files.icFrontBlob
-    )
+    if (files.icFrontBlob) {
 
-    const frontWidth = 400
-    const frontHeight =
-      (icFrontImage.height / icFrontImage.width) * frontWidth
+      const icFrontImage = await embedImage(
+        pdfDoc,
+        files.icFrontBlob
+      )
+
+      const frontWidth = 400
+      const frontHeight =
+        (icFrontImage.height / icFrontImage.width) * frontWidth
 
 
-    // IC Front (top half)
-    page1.drawImage(icFrontImage, {
-      x: (A4_WIDTH - frontWidth) / 2,
-      y: (A4_HEIGHT / 2) + 100,
-      width: frontWidth,
-      height: frontHeight
-    })
+      page1.drawImage(icFrontImage, {
+        x: (A4_WIDTH - frontWidth) / 2,
+        y: (A4_HEIGHT / 2) + 100,
+        width: frontWidth,
+        height: frontHeight
+      })
 
+    }
 
     // IC Back
-    const icBackImage = await embedImage(
-      pdfDoc,
-      files.icBackBlob
-    )
+    if (files.icBackBlob) {
+
+      const icBackImage = await embedImage(
+        pdfDoc,
+        files.icBackBlob
+      )
+
+      const backWidth = 400
+      const backHeight =
+        (icBackImage.height / icBackImage.width) * backWidth
 
 
-    const backWidth = 400
-    const backHeight =
-      (icBackImage.height / icBackImage.width) * backWidth
+      page1.drawImage(icBackImage, {
+        x: (A4_WIDTH - backWidth) / 2,
+        y: 100,
+        width: backWidth,
+        height: backHeight
+      })
 
-
-    // IC Back (bottom half)
-    page1.drawImage(icBackImage, {
-      x: (A4_WIDTH - backWidth) / 2,
-      y: 100,
-      width: backWidth,
-      height: backHeight
-    })
+    }
 
     const font = await pdfDoc.embedFont(
       StandardFonts.Helvetica
     )
 
 
-    // IC Front watermark
-    page1.drawText("Nirvana Usage Only", {
-      x: 150,
-      y: 600,
-      size: 40,
-      font,
-      color: rgb(0.3, 0.3, 0.3),
-      opacity: 0.3,
-      rotate: degrees(45)
-    })
+    // watermark
+    if (files.icFrontBlob) {
+      page1.drawText("Nirvana Usage Only", {
+        x: 150,
+        y: 600,
+        size: 40,
+        font,
+        color: rgb(0.3, 0.3, 0.3),
+        opacity: 0.3,
+        rotate: degrees(45)
+      })
+    }
 
 
-    // IC Back watermark
-    page1.drawText("Nirvana Usage Only", {
-      x: 150,
-      y: 200,
-      size: 40,
-      font,
-      color: rgb(0.3, 0.3, 0.3),
-      opacity: 0.3,
-      rotate: degrees(45)
-    })
+    if (files.icBackBlob) {
+      page1.drawText("Nirvana Usage Only", {
+        x: 150,
+        y: 200,
+        size: 40,
+        font,
+        color: rgb(0.3, 0.3, 0.3),
+        opacity: 0.3,
+        rotate: degrees(45)
+      })
+    }
 
 
     /*
@@ -180,19 +202,22 @@ function App() {
       Bank Slip PDF
     */
 
-    const bankPdfBytes = await files.bankSlipBlob.arrayBuffer()
+    if (files.bankSlipBlob) {
 
-    const bankPdf = await PDFDocument.load(bankPdfBytes)
+      const bankPdfBytes = await files.bankSlipBlob.arrayBuffer()
 
-    const copiedPages = await pdfDoc.copyPages(
-      bankPdf,
-      bankPdf.getPageIndices()
-    )
+      const bankPdf = await PDFDocument.load(bankPdfBytes)
 
+      const copiedPages = await pdfDoc.copyPages(
+        bankPdf,
+        bankPdf.getPageIndices()
+      )
 
-    copiedPages.forEach((page) => {
-      pdfDoc.addPage(page)
-    })
+      copiedPages.forEach((page) => {
+        pdfDoc.addPage(page)
+      })
+
+    }
 
     const pages = pdfDoc.getPages()
 
