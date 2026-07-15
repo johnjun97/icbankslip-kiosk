@@ -24,9 +24,15 @@ function App() {
 
   useEffect(() => {
 
-    focusInput()
+    const init = async () => {
 
-    kioskLogin()
+      await kioskLogin()
+
+      focusInput()
+
+    }
+
+    init()
 
   }, [])
 
@@ -45,7 +51,7 @@ function App() {
 
     if (!data) {
       console.log("No document found")
-      setMessage("Invalid QR Code. Please try again.")
+      setMessage("No document found.")
 
       setTimeout(() => {
         setMessage('')
@@ -300,14 +306,27 @@ function App() {
 
       const pdf = await createPDF(files)
 
-      const blob = new Blob(
-        [pdf],
-        { type: "application/pdf" }
+      const base64 = btoa(
+        new Uint8Array(pdf)
+          .reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            ''
+          )
       )
 
-      const url = URL.createObjectURL(blob)
+      console.log("electronAPI:", window.electronAPI)
 
-      window.open(url, "_blank", "noopener,noreferrer")
+      if (window.electronAPI) {
+
+        console.log("Sending print request")
+
+        window.electronAPI.printPDF(base64)
+
+      } else {
+
+        console.log("Electron API not available")
+
+      }
 
     } catch (error) {
 
@@ -397,11 +416,13 @@ function App() {
 
             </div>
 
-            {message && (
-              <div className="error-message">
-                {message}
-              </div>
-            )}
+            <div className="message-container">
+              {message && (
+                <div className="error-message">
+                  {message}
+                </div>
+              )}
+            </div>
 
             <p className="app-version">
               Version {version}
