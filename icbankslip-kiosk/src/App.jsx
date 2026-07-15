@@ -4,24 +4,31 @@ import { QRCodeCanvas } from 'qrcode.react'
 import logo from './assets/logo.png'
 import { supabase } from './lib/supabase'
 import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
+import { kioskLogin } from './lib/supabaseLogin'
 
 function App() {
+
+  const version = import.meta.env.VITE_APP_VERSION
 
   const [reference, setReference] = useState('')
   const [message, setMessage] = useState('')
   const [downloading, setDownloading] = useState(false)
 
-const inputRef = useRef(null)
+  const inputRef = useRef(null)
 
-const focusInput = () => {
-  setTimeout(() => {
-    inputRef.current?.focus()
-  }, 100)
-}
+  const focusInput = () => {
+    setTimeout(() => {
+      inputRef.current?.focus()
+    }, 100)
+  }
 
-useEffect(() => {
-  focusInput()
-}, [])
+  useEffect(() => {
+
+    focusInput()
+
+    kioskLogin()
+
+  }, [])
 
   const handleSearch = async () => {
 
@@ -279,116 +286,120 @@ useEffect(() => {
 
   const handleDownload = async (submission) => {
 
-  setDownloading(true)
-  setMessage('')
+    setDownloading(true)
+    setMessage('')
 
-  try {
+    try {
 
-    const files = await downloadFiles(submission)
+      const files = await downloadFiles(submission)
 
-    const pdf = await createPDF(files)
+      const pdf = await createPDF(files)
 
-    const blob = new Blob(
-      [pdf],
-      { type: "application/pdf" }
-    )
+      const blob = new Blob(
+        [pdf],
+        { type: "application/pdf" }
+      )
 
-    const url = URL.createObjectURL(blob)
+      const url = URL.createObjectURL(blob)
 
-    window.open(url, "_blank", "noopener,noreferrer")
+      window.open(url, "_blank", "noopener,noreferrer")
 
-  } catch (error) {
+    } catch (error) {
 
-    console.error(error)
-    setMessage("Failed to generate document")
+      console.error(error)
+      setMessage("Failed to generate document")
 
-  } finally {
+    } finally {
 
-    setDownloading(false)
+      setDownloading(false)
 
+    }
   }
-}
 
   return (
-      <>
-    {downloading && (
-      <div className="loading-overlay">
-        <div className="loading-box">
-          Preparing document...
+    <>
+      {downloading && (
+        <div className="loading-overlay">
+          <div className="loading-box">
+            Preparing document...
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
-    <div className="kiosk-container">
+      <div className="kiosk-container">
 
-      <div className="kiosk-card">
+        <div className="kiosk-card">
 
-        {/* Left Side */}
-        <div className="left-panel">
+          {/* Left Side */}
+          <div className="left-panel">
 
-          <h2>
-            Scan QR Code to upload your document
-          </h2>
+            <h2>
+              Scan QR Code to upload your document
+            </h2>
 
-          <QRCodeCanvas
-            value="https://icbankslip-kiosk.vercel.app"
-            size={220}
-          />
-
-          <p>
-            Scan using your phone camera
-          </p>
-
-        </div>
-
-
-        {/* Right Side */}
-        <div className="right-panel">
-
-          <img
-            src={logo}
-            alt="Logo"
-            className="logo"
-          />
-
-          <h3>
-            Bandar Dato Onn
-          </h3>
-
-          <h2>
-            Enter your qrcode
-          </h2>
-
-          <div className="search-box">
-
-            <input
-              ref={inputRef}
-              autoFocus
-              type="text"
-              placeholder="NIR-XXXXXXXX"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              onBlur={focusInput}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleSearch()
-                }
-              }}
+            <QRCodeCanvas
+              value="https://icbankslip-kiosk.vercel.app"
+              size={220}
             />
+
+            <p>
+              Scan using your phone camera
+            </p>
 
           </div>
 
-          {message && (
-            <div>
-              <h3>{message}</h3>
+
+          {/* Right Side */}
+          <div className="right-panel">
+
+            <img
+              src={logo}
+              alt="Logo"
+              className="logo"
+            />
+
+            <h3>
+              Bandar Dato Onn
+            </h3>
+
+            <h2>
+              Enter your qrcode
+            </h2>
+
+            <div className="search-box">
+
+              <input
+                ref={inputRef}
+                autoFocus
+                type="text"
+                placeholder="NIR-XXXXXXXX"
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+                onBlur={focusInput}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearch()
+                  }
+                }}
+              />
+
             </div>
-          )}
+
+            {message && (
+              <div>
+                <h3>{message}</h3>
+              </div>
+            )}
+
+            <p className="app-version">
+              Version {version}
+            </p>
+
+          </div>
 
         </div>
 
       </div>
-
-    </div>
 
     </>
   )
