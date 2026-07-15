@@ -45,7 +45,12 @@ function App() {
 
     if (!data) {
       console.log("No document found")
-      setMessage("Document not found")
+      setMessage("Invalid QR Code. Please try again.")
+
+      setTimeout(() => {
+        setMessage('')
+      }, 3000)
+
       inputRef.current?.focus()
       return
     }
@@ -383,11 +388,18 @@ function App() {
                 }}
               />
 
+              <button
+                className="search-button"
+                onClick={handleSearch}
+              >
+                &gt;
+              </button>
+
             </div>
 
             {message && (
-              <div>
-                <h3>{message}</h3>
+              <div className="error-message">
+                {message}
               </div>
             )}
 
