@@ -80,8 +80,11 @@ ipcMain.on("print-pdf", async (event, pdfData) => {
         (error, stdout, stderr) => {
 
           if (error) {
+
+            console.error("Sumatra error:", stderr)
             reject(error)
             return
+
           }
 
           resolve()
