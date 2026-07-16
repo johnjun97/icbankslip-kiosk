@@ -2,11 +2,19 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
-import { pathToFileURL } from 'url'
+import { execFile } from 'child_process'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+const sumatraPath = path.join(
+  __dirname,
+  "tools",
+  "SumatraPDF.exe"
+)
+if (!fs.existsSync(sumatraPath)) {
+  throw new Error(`SumatraPDF not found: ${sumatraPath}`)
+}
 
 function createWindow() {
 
@@ -38,67 +46,75 @@ function createWindow() {
 
 ipcMain.on("print-pdf", async (event, pdfData) => {
 
-  console.log("Received print request")
+  let pdfPath
 
-  const win = new BrowserWindow({
-    show: false,
-    width: 800,
-    height: 600
-  })
+  try {
 
-  const pdfPath = path.join(
-    app.getPath("temp"),
-    "print-document.pdf"
-  )
+    console.log("Received print request")
 
-  const pdfBuffer = Buffer.from(
-    pdfData,
-    "base64"
-  )
+    pdfPath = path.join(
+      app.getPath("temp"),
+      `print-${Date.now()}.pdf`
+    )
 
-  await fs.promises.writeFile(
-    pdfPath,
-    pdfBuffer
-  )
+    const pdfBuffer = Buffer.from(
+      pdfData,
+      "base64"
+    )
 
-  win.webContents.on("did-finish-load", () => {
-    console.log("PDF page ready")
-  })
-
-  await win.loadURL(
-    pathToFileURL(pdfPath).href
-  )
-
-  console.log("PDF loaded")
-
-  const printers = await win.webContents.getPrintersAsync()
-
-  console.log("Printers:", printers)
-
-  setTimeout(() => {
+    await fs.promises.writeFile(
+      pdfPath,
+      pdfBuffer
+    )
 
     console.log("Starting print")
 
+    await new Promise((resolve, reject) => {
 
+      execFile(
+        sumatraPath,
+        [
+          "-print-to-default",
+          pdfPath
+        ],
+        (error, stdout, stderr) => {
 
-    console.log("About to call print")
-    win.webContents.print({
-      silent: true,
-      printBackground: true,
-      deviceName: ""
-    }, (success, failureReason) => {
+          if (error) {
+            reject(error)
+            return
+          }
 
-      console.log(
-        "Print result:",
-        success,
-        failureReason
+          resolve()
+
+        }
       )
-
-      win.close()
 
     })
 
-  }, 5000)
+    console.log("Printed successfully")
+
+  } catch (err) {
+
+    console.error("Print process failed:", err)
+
+  } finally {
+
+    if (pdfPath) {
+
+      try {
+
+        await fs.promises.unlink(pdfPath)
+        console.log("Temp PDF deleted")
+
+      } catch (err) {
+
+        console.error("Delete temp PDF failed:", err)
+
+      }
+
+    }
+
+  }
 
 })
 
