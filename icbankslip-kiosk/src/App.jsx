@@ -207,28 +207,54 @@ function App() {
 
 
     // watermark
+    const boldFont = await pdfDoc.embedFont(
+      StandardFonts.HelveticaBold
+    )
+
     if (files.icFrontBlob) {
-      page1.drawText("Nirvana Usage Only", {
-        x: 150,
-        y: 600,
-        size: 40,
-        font,
+
+      page1.drawText("FOR NIRVANA ASIA", {
+        x: 395,
+        y: 815,
+        size: 23,
+        font: boldFont,
         color: rgb(0.3, 0.3, 0.3),
         opacity: 0.3,
-        rotate: degrees(45)
+        rotate: degrees(-45)
       })
+
+
+      page1.drawText("REFERENCE ONLY", {
+        x: 385,
+        y: 795,
+        size: 23,
+        font: boldFont,
+        color: rgb(0.3, 0.3, 0.3),
+        opacity: 0.3,
+        rotate: degrees(-45)
+      })
+
     }
 
-
     if (files.icBackBlob) {
-      page1.drawText("Nirvana Usage Only", {
-        x: 150,
-        y: 200,
-        size: 40,
-        font,
+      page1.drawText("FOR NIRVANA ASIA", {
+        x: 395,
+        y: 390,
+        size: 23,
+        font: boldFont,
         color: rgb(0.3, 0.3, 0.3),
         opacity: 0.3,
-        rotate: degrees(45)
+        rotate: degrees(-45)
+      })
+
+      page1.drawText("REFERENCE ONLY", {
+        x: 385,
+        y: 370,
+        size: 23,
+        font: boldFont,
+        color: rgb(0.3, 0.3, 0.3),
+        opacity: 0.3,
+        rotate: degrees(-45)
       })
     }
 
@@ -269,22 +295,19 @@ function App() {
 
       const { width, height } = page.getSize()
 
-      const text = "Nirvana Usage Only"
+      const text = "FOR NIRVANA ASIA\nREFERENCE ONLY"
+
       const fontSize = 60
 
-      const textWidth = bankFont.widthOfTextAtSize(
-        text,
-        fontSize
-      )
-
       page.drawText(text, {
-        x: width / 2 - 150,
-        y: height / 2 + 150,
+        x: width / 2 - 200,
+        y: height / 2 - 200,
         size: fontSize,
-        font: bankFont,
+        font: boldFont,
         color: rgb(0.3, 0.3, 0.3),
         opacity: 0.3,
-        rotate: degrees(-45)
+        lineHeight: 80,
+        rotate: degrees(45)
       })
 
     }
