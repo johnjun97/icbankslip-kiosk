@@ -324,7 +324,16 @@ function App() {
 
       } else {
 
-        console.log("Electron API not available")
+        console.log("Browser mode - opening PDF")
+
+        const blob = new Blob(
+          [pdf],
+          { type: "application/pdf" }
+        )
+
+        const url = URL.createObjectURL(blob)
+
+        window.open(url)
 
       }
 
