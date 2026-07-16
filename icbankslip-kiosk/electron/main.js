@@ -44,7 +44,7 @@ function createWindow() {
 }
 
 
-ipcMain.on("print-pdf", async (event, pdfData) => {
+ipcMain.handle("print-pdf", async (event, pdfData) => {
 
   let pdfPath
 
@@ -96,11 +96,15 @@ ipcMain.on("print-pdf", async (event, pdfData) => {
 
     console.log("Printed successfully")
 
+    return true
+
   } catch (err) {
 
-    console.error("Print process failed:", err)
+  console.error("Print process failed:", err)
 
-  } finally {
+  return false
+
+} finally {
 
     if (pdfPath) {
 

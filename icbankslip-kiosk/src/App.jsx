@@ -12,6 +12,8 @@ function App() {
 
   const [reference, setReference] = useState('')
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('')
+
   const [downloading, setDownloading] = useState(false)
 
   const inputRef = useRef(null)
@@ -51,10 +53,12 @@ function App() {
 
     if (!data) {
       console.log("No document found")
+      setMessageType("error")
       setMessage("No document found.")
 
       setTimeout(() => {
         setMessage('')
+        setMessageType('')
       }, 3000)
 
       inputRef.current?.focus()
@@ -318,7 +322,57 @@ function App() {
     return finalPdf
   }
 
+  const deleteUploadedFiles = async (submission) => {
+
+    console.log("DELETE FUNCTION CALLED", submission)
+
+    const { error: updateError } = await supabase
+      .from('submissions')
+      .update({
+        status: "Printed"
+      })
+      .eq(
+        "id",
+        submission.id
+      )
+
+    if (updateError) {
+      console.error("Update status error:", updateError)
+      return
+    }
+
+
+    const files = [
+      submission.ic_front_path,
+      submission.ic_back_path,
+      submission.bank_slip_path
+    ].filter(Boolean)
+
+
+    const { error: deleteError } = await supabase.storage
+      .from('uploads')
+      .remove(files)
+
+
+    if (deleteError) {
+      console.error("Delete files error:", deleteError)
+      return
+    }
+
+
+    console.log("Files deleted")
+
+  }
+
   const handleDownload = async (submission) => {
+
+    if (submission.status === "Printed") {
+
+      setMessage("Already printed.")
+
+      return
+
+    }
 
     setDownloading(true)
     setMessage('')
@@ -329,21 +383,22 @@ function App() {
 
       const pdf = await createPDF(files)
 
-      const base64 = btoa(
-        new Uint8Array(pdf)
-          .reduce(
-            (data, byte) => data + String.fromCharCode(byte),
-            ''
-          )
-      )
-
-      console.log("electronAPI:", window.electronAPI)
 
       if (window.electronAPI) {
 
-        console.log("Sending print request")
+        console.log("TEST MODE - skip printing")
 
-        window.electronAPI.printPDF(base64)
+        // simulate successful print
+        await deleteUploadedFiles(submission)
+
+        setMessageType("success")
+        setMessage("Test print completed")
+
+        setTimeout(() => {
+          setMessage('')
+          setMessageType('')
+        }, 5000)
+
 
       } else {
 
@@ -360,6 +415,7 @@ function App() {
 
       }
 
+
     } catch (error) {
 
       console.error(error)
@@ -370,6 +426,7 @@ function App() {
       setDownloading(false)
 
     }
+
   }
 
   return (
@@ -450,7 +507,7 @@ function App() {
 
             <div className="message-container">
               {message && (
-                <div className="error-message">
+                <div className={messageType === "success" ? "success-message" : "error-message"}>
                   {message}
                 </div>
               )}

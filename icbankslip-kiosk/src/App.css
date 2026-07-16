@@ -113,6 +113,23 @@ body {
   text-align: center;
 }
 
+.success-message {
+  position: absolute;
+  top: 10px;
+  width: 100%;
+
+  padding: 12px;
+  box-sizing: border-box;
+
+  background: #e5ffe5;
+  color: #2e7d32;
+
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+}
+
 .error-message {
   position: absolute;
   top: 10px;
