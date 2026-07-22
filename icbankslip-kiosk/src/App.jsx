@@ -7,6 +7,10 @@ import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
 import { kioskLogin } from './lib/supabaseLogin'
 
 function App() {
+  const PRINT_MODE = import.meta.env.VITE_PRINT_MODE || "TEST"
+  // TEST = simulate print
+  // SILENT = real silent print
+  // Accidentally running Electron without .env will not print real documents.
 
   const version = import.meta.env.VITE_APP_VERSION
 
@@ -76,17 +80,22 @@ function App() {
 
   const getFileUrl = async (path) => {
 
-    console.log("Trying download path:", path)
-
     const { data, error } = await supabase.storage
       .from('uploads')
       .createSignedUrl(path, 60)
 
-    console.log("Signed URL result:", data, error)
-
     if (error) {
-      console.error("Download error:", error)
-      return null
+
+      console.error("Signed URL error:", error)
+
+      if (
+        error.message.includes("not found") ||
+        error.message.includes("Object not found")
+      ) {
+        throw new Error("FILE_EXPIRED")
+      }
+
+      throw error
     }
 
     return data.signedUrl
@@ -97,7 +106,6 @@ function App() {
     let icFrontBlob = null
     let icBackBlob = null
     let bankSlipBlob = null
-
 
     if (submission.ic_front_path) {
       const url = await getFileUrl(submission.ic_front_path)
@@ -113,9 +121,25 @@ function App() {
 
     if (submission.bank_slip_path) {
       const url = await getFileUrl(submission.bank_slip_path)
-      bankSlipBlob = await (await fetch(url)).blob()
-    }
 
+      const response = await fetch(url)
+
+      const blob = await response.blob()
+
+      bankSlipBlob = new File(
+        [blob],
+        submission.bank_slip_path,
+        {
+          type: blob.type
+        }
+      )
+
+      console.log(
+        "Bank slip type:",
+        bankSlipBlob.type,
+        bankSlipBlob.name
+      )
+    }
 
     return {
       icFrontBlob,
@@ -205,10 +229,6 @@ function App() {
 
     }
 
-    const font = await pdfDoc.embedFont(
-      StandardFonts.Helvetica
-    )
-
 
     // watermark
     const boldFont = await pdfDoc.embedFont(
@@ -270,27 +290,67 @@ function App() {
 
     if (files.bankSlipBlob) {
 
-      const bankPdfBytes = await files.bankSlipBlob.arrayBuffer()
+      const type = files.bankSlipBlob.type
+      const filename = files.bankSlipBlob.name?.toLowerCase() || ""
 
-      const bankPdf = await PDFDocument.load(bankPdfBytes)
-
-      const copiedPages = await pdfDoc.copyPages(
-        bankPdf,
-        bankPdf.getPageIndices()
+      console.log(
+        "BANK DECISION:",
+        {
+          type,
+          filename
+        }
       )
 
-      copiedPages.forEach((page) => {
-        pdfDoc.addPage(page)
-      })
+      if (
+        filename.endsWith(".pdf")
+      ) {
+
+        const bankPdfBytes = await files.bankSlipBlob.arrayBuffer()
+
+        const bankPdf = await PDFDocument.load(bankPdfBytes)
+
+        const copiedPages = await pdfDoc.copyPages(
+          bankPdf,
+          bankPdf.getPageIndices()
+        )
+
+        copiedPages.forEach((page) => {
+          pdfDoc.addPage(page)
+        })
+
+      } else if (
+        type.startsWith("image/") ||
+        filename.endsWith(".jpg") ||
+        filename.endsWith(".jpeg") ||
+        filename.endsWith(".png")
+      ) {
+
+        const bankImage = await embedImage(
+          pdfDoc,
+          files.bankSlipBlob
+        )
+
+        const page = pdfDoc.addPage([
+          A4_WIDTH,
+          A4_HEIGHT
+        ])
+
+        const width = 400
+        const height =
+          (bankImage.height / bankImage.width) * width
+
+        page.drawImage(bankImage, {
+          x: (A4_WIDTH - width) / 2,
+          y: (A4_HEIGHT - height) / 2,
+          width,
+          height
+        })
+
+      }
 
     }
 
     const pages = pdfDoc.getPages()
-
-    const bankFont = await pdfDoc.embedFont(
-      StandardFonts.Helvetica
-    )
-
 
     // Start from page 2
     for (let i = 1; i < pages.length; i++) {
@@ -326,7 +386,7 @@ function App() {
 
     console.log("DELETE FUNCTION CALLED", submission)
 
-    const { error: updateError } = await supabase
+    const { data: updateData, error: updateError } = await supabase
       .from('submissions')
       .update({
         status: "Printed"
@@ -335,10 +395,18 @@ function App() {
         "id",
         submission.id
       )
+      .select()
 
-    if (updateError) {
-      console.error("Update status error:", updateError)
-      return
+
+    console.log("UPDATE RESULT:", {
+      updateData,
+      updateError
+    })
+
+
+    if (updateError || !updateData?.length) {
+      console.error("Update status failed:", updateError)
+      throw new Error("STATUS_UPDATE_FAILED")
     }
 
 
@@ -349,26 +417,64 @@ function App() {
     ].filter(Boolean)
 
 
-    const { error: deleteError } = await supabase.storage
-      .from('uploads')
-      .remove(files)
+    console.log("Attempting to delete:", files)
 
+    const storage = supabase.storage.from('uploads')
+
+    const { data: deleteResult, error: deleteError } = await storage.remove(files)
 
     if (deleteError) {
-      console.error("Delete files error:", deleteError)
-      return
+      console.error("Delete failed:", deleteError)
     }
 
+    console.log("BULK DELETE RESULT:", {
+      deleteResult,
+      deleteError
+    })
 
-    console.log("Files deleted")
+    console.log("Storage delete test completed")
 
+  }
+
+
+
+  function uint8ToBase64(bytes) {
+    let binary = ""
+
+    const chunkSize = 0x8000
+
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(
+        ...bytes.subarray(i, i + chunkSize)
+      )
+    }
+
+    return btoa(binary)
   }
 
   const handleDownload = async (submission) => {
 
     if (submission.status === "Printed") {
 
+      setMessageType("error")
       setMessage("Already printed.")
+
+      return
+
+    }
+
+
+    if (submission.status === "Expired") {
+
+      setMessageType("error")
+      setMessage(
+        "Documents expired. Please upload again."
+      )
+
+      setTimeout(() => {
+        setMessage('')
+        setMessageType('')
+      }, 5000)
 
       return
 
@@ -382,17 +488,77 @@ function App() {
       const files = await downloadFiles(submission)
 
       const pdf = await createPDF(files)
+      console.log(
+        "PDF SIZE:",
+        pdf.length
+      )
 
 
       if (window.electronAPI) {
 
-        console.log("TEST MODE - skip printing")
+        let printSuccess = false
 
-        // simulate successful print
-        await deleteUploadedFiles(submission)
 
-        setMessageType("success")
-        setMessage("Test print completed")
+        if (PRINT_MODE === "TEST") {
+
+          console.log("TEST MODE - open PDF")
+
+          const blob = new Blob(
+            [pdf],
+            { type: "application/pdf" }
+          )
+
+          const url = URL.createObjectURL(blob)
+
+          window.open(url, "_blank")
+
+          printSuccess = false
+
+        }
+
+
+        if (PRINT_MODE === "SILENT") {
+
+          console.log("REAL SILENT PRINT")
+
+          const base64 = uint8ToBase64(
+            new Uint8Array(pdf)
+          )
+
+          printSuccess = await window.electronAPI.printPDF(base64)
+
+        }
+
+        if (!PRINT_MODE) {
+
+          console.warn("PRINT_MODE not set")
+
+        }
+
+
+        if (printSuccess) {
+
+          if (PRINT_MODE === "SILENT") {
+            await deleteUploadedFiles(submission)
+          }
+
+          setMessageType("success")
+
+          setMessage(
+            PRINT_MODE === "TEST"
+              ? "Test print completed"
+              : "Print successfully"
+          )
+
+
+        } else {
+
+          setMessageType("error")
+
+          setMessage("Print failed")
+
+        }
+
 
         setTimeout(() => {
           setMessage('')
@@ -418,8 +584,23 @@ function App() {
 
     } catch (error) {
 
-      console.error(error)
-      setMessage("Failed to generate document")
+      console.error("Generate error:", error)
+
+      if (error.message === "FILE_EXPIRED") {
+
+        setMessageType("error")
+        setMessage(
+          "Documents expired. Please upload again."
+        )
+
+      } else {
+
+        setMessageType("error")
+        setMessage(
+          "Unable to prepare document. Please try again."
+        )
+
+      }
 
     } finally {
 
