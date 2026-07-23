@@ -180,10 +180,16 @@ function App() {
       IC Front + IC Back
     */
 
-    const page1 = pdfDoc.addPage([
-      A4_WIDTH,
-      A4_HEIGHT
-    ])
+    let page1 = null
+
+    if (files.icFrontBlob || files.icBackBlob) {
+
+      page1 = pdfDoc.addPage([
+        A4_WIDTH,
+        A4_HEIGHT
+      ])
+
+    }
 
 
     // IC Front
@@ -199,7 +205,7 @@ function App() {
         (icFrontImage.height / icFrontImage.width) * frontWidth
 
 
-      page1.drawImage(icFrontImage, {
+      page1?.drawImage(icFrontImage, {
         x: (A4_WIDTH - frontWidth) / 2,
         y: (A4_HEIGHT / 2) + 100,
         width: frontWidth,
@@ -221,7 +227,7 @@ function App() {
         (icBackImage.height / icBackImage.width) * backWidth
 
 
-      page1.drawImage(icBackImage, {
+      page1?.drawImage(icBackImage, {
         x: (A4_WIDTH - backWidth) / 2,
         y: 100,
         width: backWidth,
@@ -238,7 +244,7 @@ function App() {
 
     if (files.icFrontBlob) {
 
-      page1.drawText("FOR NIRVANA ASIA", {
+      page1?.drawText("FOR NIRVANA ASIA", {
         x: 395,
         y: 815,
         size: 23,
@@ -249,7 +255,7 @@ function App() {
       })
 
 
-      page1.drawText("REFERENCE ONLY", {
+      page1?.drawText("REFERENCE ONLY", {
         x: 385,
         y: 795,
         size: 23,
@@ -262,7 +268,7 @@ function App() {
     }
 
     if (files.icBackBlob) {
-      page1.drawText("FOR NIRVANA ASIA", {
+      page1?.drawText("FOR NIRVANA ASIA", {
         x: 395,
         y: 390,
         size: 23,
@@ -272,7 +278,7 @@ function App() {
         rotate: degrees(-45)
       })
 
-      page1.drawText("REFERENCE ONLY", {
+      page1?.drawText("REFERENCE ONLY", {
         x: 385,
         y: 370,
         size: 23,
@@ -354,157 +360,224 @@ function App() {
     const pages = pdfDoc.getPages()
 
     // Start from page 2
-    for (let i = 1; i < pages.length; i++) {
+    for (let i = 0; i < pages.length; i++) {
 
-      const page = pages[i]
+        const page = pages[i]
 
-      const { width, height } = page.getSize()
+        const { width, height } = page.getSize()
 
-      const text = "FOR NIRVANA ASIA\nREFERENCE ONLY"
+        const text = "FOR NIRVANA ASIA\nREFERENCE ONLY"
 
-      const fontSize = 60
+        const fontSize = 60
 
-      page.drawText(text, {
-        x: width / 2 - 200,
-        y: height / 2 - 200,
-        size: fontSize,
-        font: boldFont,
-        color: rgb(0.3, 0.3, 0.3),
-        opacity: 0.3,
-        lineHeight: 80,
-        rotate: degrees(45)
+        page.drawText(text, {
+          x: width / 2 - 200,
+          y: height / 2 - 200,
+          size: fontSize,
+          font: boldFont,
+          color: rgb(0.3, 0.3, 0.3),
+          opacity: 0.3,
+          lineHeight: 80,
+          rotate: degrees(45)
+        })
+
+      }
+
+
+      const finalPdf = await pdfDoc.save()
+
+      return finalPdf
+    }
+
+    const deleteUploadedFiles = async (submission) => {
+
+      console.log("DELETE FUNCTION CALLED", submission)
+
+      const { data: updateData, error: updateError } = await supabase
+        .from('submissions')
+        .update({
+          status: "Printed",
+          printed_from: kioskName,
+          printed_date: new Date().toISOString()
+        })
+        .eq(
+          "id",
+          submission.id
+        )
+        .select()
+
+
+      console.log("UPDATE RESULT:", {
+        updateData,
+        updateError
       })
 
-    }
+
+      if (updateError || !updateData?.length) {
+        console.error("Update status failed:", updateError)
+        throw new Error("STATUS_UPDATE_FAILED")
+      }
 
 
-    const finalPdf = await pdfDoc.save()
+      const files = [
+        submission.ic_front_path,
+        submission.ic_back_path,
+        submission.bank_slip_path
+      ].filter(Boolean)
 
-    return finalPdf
-  }
 
-  const deleteUploadedFiles = async (submission) => {
+      console.log("Attempting to delete:", files)
 
-    console.log("DELETE FUNCTION CALLED", submission)
+      const storage = supabase.storage.from('uploads')
 
-    const { data: updateData, error: updateError } = await supabase
-      .from('submissions')
-      .update({
-        status: "Printed",
-        printed_from: kioskName,
-        printed_date: new Date().toISOString()
+      const { data: deleteResult, error: deleteError } = await storage.remove(files)
+
+      if (deleteError) {
+        console.error("Delete failed:", deleteError)
+      }
+
+      console.log("BULK DELETE RESULT:", {
+        deleteResult,
+        deleteError
       })
-      .eq(
-        "id",
-        submission.id
-      )
-      .select()
 
-
-    console.log("UPDATE RESULT:", {
-      updateData,
-      updateError
-    })
-
-
-    if (updateError || !updateData?.length) {
-      console.error("Update status failed:", updateError)
-      throw new Error("STATUS_UPDATE_FAILED")
-    }
-
-
-    const files = [
-      submission.ic_front_path,
-      submission.ic_back_path,
-      submission.bank_slip_path
-    ].filter(Boolean)
-
-
-    console.log("Attempting to delete:", files)
-
-    const storage = supabase.storage.from('uploads')
-
-    const { data: deleteResult, error: deleteError } = await storage.remove(files)
-
-    if (deleteError) {
-      console.error("Delete failed:", deleteError)
-    }
-
-    console.log("BULK DELETE RESULT:", {
-      deleteResult,
-      deleteError
-    })
-
-    console.log("Storage delete test completed")
-
-  }
-
-
-
-  function uint8ToBase64(bytes) {
-    let binary = ""
-
-    const chunkSize = 0x8000
-
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(
-        ...bytes.subarray(i, i + chunkSize)
-      )
-    }
-
-    return btoa(binary)
-  }
-
-  const handleDownload = async (submission) => {
-
-    if (submission.status === "Printed") {
-
-      setMessageType("error")
-      setMessage("Already printed.")
-
-      return
+      console.log("Storage delete test completed")
 
     }
 
 
-    if (submission.status === "Expired") {
 
-      setMessageType("error")
-      setMessage(
-        "Documents expired. Please upload again."
-      )
+    function uint8ToBase64(bytes) {
+      let binary = ""
 
-      setTimeout(() => {
-        setMessage('')
-        setMessageType('')
-      }, 5000)
+      const chunkSize = 0x8000
 
-      return
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(
+          ...bytes.subarray(i, i + chunkSize)
+        )
+      }
 
+      return btoa(binary)
     }
 
-    setDownloading(true)
-    setMessage('')
+    const handleDownload = async (submission) => {
 
-    try {
+      if (submission.status === "Printed") {
 
-      const files = await downloadFiles(submission)
+        setMessageType("error")
+        setMessage("Already printed.")
 
-      const pdf = await createPDF(files)
-      console.log(
-        "PDF SIZE:",
-        pdf.length
-      )
+        return
+
+      }
 
 
-      if (window.electronAPI) {
+      if (submission.status === "Expired") {
 
-        let printSuccess = false
+        setMessageType("error")
+        setMessage(
+          "Documents expired. Please upload again."
+        )
+
+        setTimeout(() => {
+          setMessage('')
+          setMessageType('')
+        }, 5000)
+
+        return
+
+      }
+
+      setDownloading(true)
+      setMessage('')
+
+      try {
+
+        const files = await downloadFiles(submission)
+
+        const pdf = await createPDF(files)
+        console.log(
+          "PDF SIZE:",
+          pdf.length
+        )
 
 
-        if (PRINT_MODE === "TEST") {
+        if (window.electronAPI) {
 
-          console.log("TEST MODE - open PDF")
+          let printSuccess = false
+
+
+          if (PRINT_MODE === "TEST") {
+
+            console.log("TEST MODE - open PDF")
+
+            const blob = new Blob(
+              [pdf],
+              { type: "application/pdf" }
+            )
+
+            const url = URL.createObjectURL(blob)
+
+            window.open(url, "_blank")
+
+            printSuccess = false
+
+          }
+
+
+          if (PRINT_MODE === "SILENT") {
+
+            console.log("REAL SILENT PRINT")
+
+            const base64 = uint8ToBase64(
+              new Uint8Array(pdf)
+            )
+
+            printSuccess = await window.electronAPI.printPDF(base64)
+
+          }
+
+          if (!PRINT_MODE) {
+
+            console.warn("PRINT_MODE not set")
+
+          }
+
+
+          if (printSuccess) {
+
+            if (PRINT_MODE === "SILENT") {
+              await deleteUploadedFiles(submission)
+            }
+
+            setMessageType("success")
+
+            setMessage(
+              PRINT_MODE === "TEST"
+                ? "Test print completed"
+                : "Print successfully"
+            )
+
+
+          } else {
+
+            setMessageType("error")
+
+            setMessage("Print failed")
+
+          }
+
+
+          setTimeout(() => {
+            setMessage('')
+            setMessageType('')
+          }, 5000)
+
+
+        } else {
+
+          console.log("Browser mode - opening PDF")
 
           const blob = new Blob(
             [pdf],
@@ -513,202 +586,135 @@ function App() {
 
           const url = URL.createObjectURL(blob)
 
-          window.open(url, "_blank")
-
-          printSuccess = false
+          window.open(url)
 
         }
 
 
-        if (PRINT_MODE === "SILENT") {
+      } catch (error) {
 
-          console.log("REAL SILENT PRINT")
+        console.error("Generate error:", error)
 
-          const base64 = uint8ToBase64(
-            new Uint8Array(pdf)
-          )
+        if (error.message === "FILE_EXPIRED") {
 
-          printSuccess = await window.electronAPI.printPDF(base64)
-
-        }
-
-        if (!PRINT_MODE) {
-
-          console.warn("PRINT_MODE not set")
-
-        }
-
-
-        if (printSuccess) {
-
-          if (PRINT_MODE === "SILENT") {
-            await deleteUploadedFiles(submission)
-          }
-
-          setMessageType("success")
-
+          setMessageType("error")
           setMessage(
-            PRINT_MODE === "TEST"
-              ? "Test print completed"
-              : "Print successfully"
+            "Documents expired. Please upload again."
           )
-
 
         } else {
 
           setMessageType("error")
-
-          setMessage("Print failed")
+          setMessage(
+            "Unable to prepare document. Please try again."
+          )
 
         }
 
+      } finally {
 
-        setTimeout(() => {
-          setMessage('')
-          setMessageType('')
-        }, 5000)
-
-
-      } else {
-
-        console.log("Browser mode - opening PDF")
-
-        const blob = new Blob(
-          [pdf],
-          { type: "application/pdf" }
-        )
-
-        const url = URL.createObjectURL(blob)
-
-        window.open(url)
+        setDownloading(false)
 
       }
-
-
-    } catch (error) {
-
-      console.error("Generate error:", error)
-
-      if (error.message === "FILE_EXPIRED") {
-
-        setMessageType("error")
-        setMessage(
-          "Documents expired. Please upload again."
-        )
-
-      } else {
-
-        setMessageType("error")
-        setMessage(
-          "Unable to prepare document. Please try again."
-        )
-
-      }
-
-    } finally {
-
-      setDownloading(false)
 
     }
 
-  }
-
-  return (
-    <>
-      {downloading && (
-        <div className="loading-overlay">
-          <div className="loading-box">
-            Preparing document...
+    return (
+      <>
+        {downloading && (
+          <div className="loading-overlay">
+            <div className="loading-box">
+              Preparing document...
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="kiosk-container">
+        <div className="kiosk-container">
 
-        <div className="kiosk-card">
+          <div className="kiosk-card">
 
-          {/* Left Side */}
-          <div className="left-panel">
+            {/* Left Side */}
+            <div className="left-panel">
 
-            <h2>
-              Scan QR Code to upload your document
-            </h2>
+              <h2>
+                Scan QR Code to upload your document
+              </h2>
 
-            <QRCodeCanvas
-              value="https://icbankslip-kiosk.vercel.app"
-              size={220}
-            />
-
-            <p>
-              Scan using your phone camera
-            </p>
-
-          </div>
-
-
-          {/* Right Side */}
-          <div className="right-panel">
-
-            <img
-              src={logo}
-              alt="Logo"
-              className="logo"
-            />
-
-            <h3>
-              {kioskName}
-            </h3>
-
-            <h2>
-              Enter your qrcode
-            </h2>
-
-            <div className="search-box">
-
-              <input
-                ref={inputRef}
-                autoFocus
-                type="text"
-                placeholder="NIR-XXXXXXXX"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                onBlur={focusInput}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleSearch()
-                  }
-                }}
+              <QRCodeCanvas
+                value="https://icbankslip-kiosk.vercel.app"
+                size={220}
               />
 
-              <button
-                className="search-button"
-                onClick={handleSearch}
-              >
-                &gt;
-              </button>
+              <p>
+                Scan using your phone camera
+              </p>
 
             </div>
 
-            <div className="message-container">
-              {message && (
-                <div className={messageType === "success" ? "success-message" : "error-message"}>
-                  {message}
-                </div>
-              )}
-            </div>
 
-            <p className="app-version">
-              Version {version}
-            </p>
+            {/* Right Side */}
+            <div className="right-panel">
+
+              <img
+                src={logo}
+                alt="Logo"
+                className="logo"
+              />
+
+              <h3>
+                {kioskName}
+              </h3>
+
+              <h2>
+                Enter your qrcode
+              </h2>
+
+              <div className="search-box">
+
+                <input
+                  ref={inputRef}
+                  autoFocus
+                  type="text"
+                  placeholder="NIR-XXXXXXXX"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  onBlur={focusInput}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleSearch()
+                    }
+                  }}
+                />
+
+                <button
+                  className="search-button"
+                  onClick={handleSearch}
+                >
+                  &gt;
+                </button>
+
+              </div>
+
+              <div className="message-container">
+                {message && (
+                  <div className={messageType === "success" ? "success-message" : "error-message"}>
+                    {message}
+                  </div>
+                )}
+              </div>
+
+              <p className="app-version">
+                Version {version}
+              </p>
+
+            </div>
 
           </div>
 
         </div>
 
-      </div>
+      </>
+    )
+  }
 
-    </>
-  )
-}
-
-export default App
+  export default App
