@@ -357,10 +357,12 @@ function App() {
 
     }
 
-    const pages = pdfDoc.getPages()
+const pages = pdfDoc.getPages()
 
-    // Start from page 2
-    for (let i = 0; i < pages.length; i++) {
+// Only watermark bank slip pages
+const bankSlipStartPage = files.icFrontBlob || files.icBackBlob ? 1 : 0
+
+for (let i = bankSlipStartPage; i < pages.length; i++) {
 
         const page = pages[i]
 
