@@ -13,6 +13,7 @@ function App() {
   // Accidentally running Electron without .env will not print real documents.
 
   const version = import.meta.env.VITE_APP_VERSION
+  const kioskName = import.meta.env.VITE_KIOSK_NAME
 
   const [reference, setReference] = useState('')
   const [message, setMessage] = useState('')
@@ -389,7 +390,9 @@ function App() {
     const { data: updateData, error: updateError } = await supabase
       .from('submissions')
       .update({
-        status: "Printed"
+        status: "Printed",
+        printed_from: kioskName,
+        printed_date: new Date().toISOString()
       })
       .eq(
         "id",
@@ -653,7 +656,7 @@ function App() {
             />
 
             <h3>
-              Bandar Dato Onn
+              {kioskName}
             </h3>
 
             <h2>
