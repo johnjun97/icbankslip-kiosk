@@ -6,6 +6,12 @@ import { supabase } from './lib/supabase'
 import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
 import { kioskLogin } from './lib/supabaseLogin'
 
+const DEBUG = import.meta.env.VITE_DEBUG === "true"
+
+if (!DEBUG) {
+  console.log = () => {}
+}
+
 function App() {
   const PRINT_MODE = import.meta.env.VITE_PRINT_MODE || "TEST"
   // TEST = simulate print
@@ -536,7 +542,9 @@ for (let i = bankSlipStartPage; i < pages.length; i++) {
               new Uint8Array(pdf)
             )
 
-            printSuccess = await window.electronAPI.printPDF(base64)
+printSuccess = await window.electronAPI.printPDF(base64)
+
+console.log("PRINT RESULT:", printSuccess)
 
           }
 

@@ -8,10 +8,16 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const sumatraPath = path.join(
-  __dirname,
+  process.resourcesPath,
   "tools",
   "SumatraPDF.exe"
 )
+
+console.log("APP PATH:", app.getAppPath())
+console.log("__dirname:", __dirname)
+console.log("SUMATRA PATH:", sumatraPath)
+console.log("SUMATRA EXISTS:", fs.existsSync(sumatraPath))
+
 if (!fs.existsSync(sumatraPath)) {
   throw new Error(`SumatraPDF not found: ${sumatraPath}`)
 }
@@ -71,6 +77,10 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
 
     await new Promise((resolve, reject) => {
 
+      setTimeout(() => {
+        resolve()
+      }, 3000)
+
       execFile(
         sumatraPath,
         [
@@ -100,11 +110,11 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
 
   } catch (err) {
 
-  console.error("Print process failed:", err)
+    console.error("Print process failed:", err)
 
-  return false
+    return false
 
-} finally {
+  } finally {
 
     if (pdfPath) {
 

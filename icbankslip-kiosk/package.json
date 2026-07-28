@@ -1,7 +1,7 @@
 {
   "name": "icbankslip-kiosk",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Nirvana IC BankSlip Kiosk",
   "author": "Nirvana",
   "type": "module",
@@ -44,6 +44,12 @@
     "files": [
       "dist/**/*",
       "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "electron/tools/SumatraPDF.exe",
+        "to": "tools/SumatraPDF.exe"
+      }
     ],
     "win": {
       "target": "nsis"
