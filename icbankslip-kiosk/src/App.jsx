@@ -23,10 +23,7 @@ function App() {
 
   const debugLabel = DEBUG ? " (Debug Mode)" : ""
 
-  const printLabel =
-    PRINT_MODE === "SILENT"
-      ? " (Silent)"
-      : ""
+const printLabel = ""
 
   const [reference, setReference] = useState('')
   const [message, setMessage] = useState('')
