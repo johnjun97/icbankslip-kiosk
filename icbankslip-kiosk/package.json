@@ -1,7 +1,7 @@
 {
   "name": "icbankslip-kiosk",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Nirvana IC BankSlip Kiosk",
   "author": "Nirvana",
   "type": "module",
@@ -52,7 +52,8 @@
       }
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+       "icon": "electron/assets/icon.ico"
     }
   }
 }

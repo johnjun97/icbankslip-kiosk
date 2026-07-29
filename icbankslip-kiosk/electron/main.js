@@ -7,11 +7,9 @@ import { execFile } from 'child_process'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const sumatraPath = path.join(
-  process.resourcesPath,
-  "tools",
-  "SumatraPDF.exe"
-)
+const sumatraPath = app.isPackaged
+  ? path.join(process.resourcesPath, "tools", "SumatraPDF.exe")
+  : path.join(__dirname, "tools", "SumatraPDF.exe");
 
 console.log("APP PATH:", app.getAppPath())
 console.log("__dirname:", __dirname)
@@ -24,6 +22,18 @@ if (!fs.existsSync(sumatraPath)) {
 
 function createWindow() {
 
+  console.log(
+    "ICON PATH:",
+    path.join(__dirname, "assets", "icon.ico")
+  )
+
+  console.log(
+    "ICON EXISTS:",
+    fs.existsSync(
+      path.join(__dirname, "assets", "icon.ico")
+    )
+  )
+
   const mainWindow = new BrowserWindow({
 
     width: 1200,
@@ -32,6 +42,8 @@ function createWindow() {
     fullscreen: true,
 
     autoHideMenuBar: true,
+
+    icon: path.join(__dirname, "assets", "icon.ico"),
 
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
