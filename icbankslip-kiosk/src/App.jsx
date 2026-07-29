@@ -33,6 +33,7 @@ function App() {
   const [messageType, setMessageType] = useState('')
 
   const [downloading, setDownloading] = useState(false)
+  const [loadingText, setLoadingText] = useState("")
 
   const inputRef = useRef(null)
 
@@ -505,12 +506,15 @@ function App() {
     }
 
     setDownloading(true)
+    setLoadingText("Preparing Document...")
     setMessage('')
 
     try {
 
+      setLoadingText("Downloading files...")
       const files = await downloadFiles(submission)
 
+      setLoadingText("Generating PDF...")
       const pdf = await createPDF(files)
       console.log(
         "PDF SIZE:",
@@ -548,7 +552,7 @@ function App() {
           const base64 = uint8ToBase64(
             new Uint8Array(pdf)
           )
-
+          setLoadingText("Printing document...")
           printSuccess = await window.electronAPI.printPDF(base64)
 
           console.log("PRINT RESULT:", printSuccess)
@@ -629,7 +633,7 @@ function App() {
       }
 
     } finally {
-
+      setLoadingText("")
       setDownloading(false)
 
     }
@@ -641,7 +645,7 @@ function App() {
       {downloading && (
         <div className="loading-overlay">
           <div className="loading-box">
-            Preparing document...
+            {loadingText}
           </div>
         </div>
       )}
