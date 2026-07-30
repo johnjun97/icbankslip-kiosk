@@ -479,7 +479,7 @@ const printLabel = ""
     if (submission.status === "Printed") {
 
       setMessageType("error")
-      setMessage("Already printed.")
+      setMessage("Documents already printed. Please upload again")
 
       return
 
