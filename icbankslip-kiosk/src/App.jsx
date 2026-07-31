@@ -23,7 +23,7 @@ function App() {
 
   const debugLabel = DEBUG ? " (Debug Mode)" : ""
 
-const printLabel = ""
+  const printLabel = ""
 
   const [reference, setReference] = useState('')
   const [message, setMessage] = useState('')
@@ -660,7 +660,7 @@ const printLabel = ""
 
             <QRCodeCanvas
               value="https://icbankslip-kiosk.vercel.app"
-              size={220}
+              size={320}
             />
 
             <p>
