@@ -85,6 +85,7 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
       pdfBuffer
     )
 
+    console.time("PRINT_TIME")
     console.log("Starting print")
 
     await new Promise((resolve, reject) => {
@@ -112,7 +113,8 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
       )
 
     })
-    console.log("Printed successfully")
+console.timeEnd("PRINT_TIME")
+console.log("Printed successfully")
 
     return true
 
@@ -124,26 +126,26 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
 
   } finally {
 
-  if (pdfPath) {
+    if (pdfPath) {
 
-    setTimeout(async () => {
+      setTimeout(async () => {
 
-      try {
+        try {
 
-        await fs.promises.unlink(pdfPath)
-        console.log("Temp PDF deleted")
+          await fs.promises.unlink(pdfPath)
+          console.log("Temp PDF deleted")
 
-      } catch (err) {
+        } catch (err) {
 
-        console.error("Delete temp PDF failed:", err)
+          console.error("Delete temp PDF failed:", err)
 
-      }
+        }
 
-    }, 10000)
+      }, 10000)
+
+    }
 
   }
-
-}
 
 })
 

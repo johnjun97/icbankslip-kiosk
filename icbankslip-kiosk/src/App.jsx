@@ -160,9 +160,9 @@ function App() {
     }
   }
 
-const embedImage = async (pdfDoc, blob) => {
+  const embedImage = async (pdfDoc, blob) => {
 
-  const bytes = await blob.arrayBuffer()
+    const bytes = await blob.arrayBuffer()
 
     try {
       // Try PNG first
@@ -549,8 +549,12 @@ const embedImage = async (pdfDoc, blob) => {
           const base64 = uint8ToBase64(
             new Uint8Array(pdf)
           )
-          setLoadingText("Printing document...(4/5)")
+          setLoadingText("Sending to printer...(4/5)")
+          console.time("PRINT_DURATION")
+
           printSuccess = await window.electronAPI.printPDF(base64)
+
+          console.timeEnd("PRINT_DURATION")
 
           console.log("PRINT RESULT:", printSuccess)
 
