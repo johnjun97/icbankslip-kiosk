@@ -503,15 +503,15 @@ const embedImage = async (pdfDoc, blob) => {
     }
 
     setDownloading(true)
-    setLoadingText("Preparing Document...")
+    setLoadingText("Starting process...(1/5)")
     setMessage('')
 
     try {
 
-      setLoadingText("Downloading files...")
+      setLoadingText("Downloading files...(2/5)")
       const files = await downloadFiles(submission)
 
-      setLoadingText("Generating PDF...")
+      setLoadingText("Generating PDF...(3/5)")
       const pdf = await createPDF(files)
       console.log(
         "PDF SIZE:",
@@ -549,7 +549,7 @@ const embedImage = async (pdfDoc, blob) => {
           const base64 = uint8ToBase64(
             new Uint8Array(pdf)
           )
-          setLoadingText("Printing document...")
+          setLoadingText("Printing document...(4/5)")
           printSuccess = await window.electronAPI.printPDF(base64)
 
           console.log("PRINT RESULT:", printSuccess)
