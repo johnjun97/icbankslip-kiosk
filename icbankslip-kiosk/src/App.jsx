@@ -160,9 +160,9 @@ function App() {
     }
   }
 
-  const embedImage = async (pdfDoc, blob) => {
+const embedImage = async (pdfDoc, blob) => {
 
-    const bytes = await blob.arrayBuffer()
+  const bytes = await blob.arrayBuffer()
 
     try {
       // Try PNG first
@@ -574,7 +574,7 @@ function App() {
           setMessage(
             PRINT_MODE === "TEST"
               ? "Test print completed"
-              : "Print successfully"
+              : "Document sent to printer. Please wait..."
           )
 
 
@@ -660,7 +660,7 @@ function App() {
 
             <QRCodeCanvas
               value="https://icbankslip-kiosk.vercel.app"
-              size={320}
+              size={280}
             />
 
             <p>

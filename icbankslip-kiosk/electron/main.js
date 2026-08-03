@@ -89,13 +89,10 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
 
     await new Promise((resolve, reject) => {
 
-      setTimeout(() => {
-        resolve()
-      }, 3000)
-
       execFile(
         sumatraPath,
         [
+          "-silent",
           "-print-to-default",
           pdfPath
         ],
@@ -115,7 +112,6 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
       )
 
     })
-
     console.log("Printed successfully")
 
     return true
@@ -128,7 +124,9 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
 
   } finally {
 
-    if (pdfPath) {
+  if (pdfPath) {
+
+    setTimeout(async () => {
 
       try {
 
@@ -141,9 +139,11 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
 
       }
 
-    }
+    }, 10000)
 
   }
+
+}
 
 })
 
