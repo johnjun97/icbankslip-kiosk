@@ -99,6 +99,8 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
         ],
         (error, stdout, stderr) => {
 
+          console.log("Sumatra callback received")
+
           if (error) {
 
             console.error("Sumatra error:", stderr)
@@ -113,8 +115,9 @@ ipcMain.handle("print-pdf", async (event, pdfData) => {
       )
 
     })
-console.timeEnd("PRINT_TIME")
-console.log("Printed successfully")
+
+    console.timeEnd("PRINT_TIME")
+    console.log("Printed successfully")
 
     return true
 

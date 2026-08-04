@@ -398,7 +398,7 @@ function App() {
 
 
     const finalPdf = await pdfDoc.save()
-
+    
     return finalPdf
   }
 
@@ -546,10 +546,16 @@ function App() {
 
           console.log("REAL SILENT PRINT")
 
+          setLoadingText("Sending to printer...(4/5)")
+
+          console.time("BASE64_CONVERSION")
+
           const base64 = uint8ToBase64(
             new Uint8Array(pdf)
           )
-          setLoadingText("Sending to printer...(4/5)")
+
+          console.timeEnd("BASE64_CONVERSION")
+
           console.time("PRINT_DURATION")
 
           printSuccess = await window.electronAPI.printPDF(base64)
