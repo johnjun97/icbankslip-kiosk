@@ -54,6 +54,21 @@ function App() {
 
   }, [])
 
+  // Auto clear reference after 30 seconds of inactivity
+
+  useEffect(() => {
+
+    if (!reference) return
+
+    const timer = setTimeout(() => {
+      setReference('')
+      inputRef.current?.focus()
+    }, 30000)
+
+    return () => clearTimeout(timer)
+
+  }, [reference])
+
   const handleSearch = async () => {
 
     const { data, error } = await supabase
@@ -398,7 +413,7 @@ function App() {
 
 
     const finalPdf = await pdfDoc.save()
-    
+
     return finalPdf
   }
 
