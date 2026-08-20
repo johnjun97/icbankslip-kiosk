@@ -4,3 +4,4 @@
 
 ### Fixed
 - splitted app.jsx install smaller components
+- added CHANGELOG.md
