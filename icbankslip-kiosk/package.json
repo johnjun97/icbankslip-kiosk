@@ -1,7 +1,7 @@
 {
   "name": "icbankslip-kiosk",
   "private": true,
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Nirvana IC BankSlip Kiosk",
   "author": "Nirvana",
   "type": "module",

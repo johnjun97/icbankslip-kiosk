@@ -2,9 +2,22 @@ import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import { QRCodeCanvas } from 'qrcode.react'
 import logo from './assets/logo.png'
-import { supabase } from './lib/supabase'
-import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
 import { kioskLogin } from './lib/supabaseLogin'
+import {
+  downloadFiles,
+  deleteUploadedFiles
+} from './lib/documentService'
+import {
+  createPDF
+} from './lib/pdfService'
+
+import {
+  printPDF
+} from './lib/printService'
+import {
+  findSubmissionByQRCode
+} from './lib/submissionService'
+
 
 const DEBUG = import.meta.env.VITE_DEBUG === "true"
 
@@ -71,11 +84,8 @@ function App() {
 
   const handleSearch = async () => {
 
-    const { data, error } = await supabase
-      .from('submissions')
-      .select('*')
-      .eq('qrcode', reference)
-      .maybeSingle()
+    const { data, error } =
+      await findSubmissionByQRCode(reference)
 
     if (error) {
       console.error("Search error:", error)
@@ -103,390 +113,6 @@ function App() {
     await handleDownload(data)
 
     inputRef.current?.focus()
-  }
-
-  const getFileUrl = async (path) => {
-
-    const { data, error } = await supabase.storage
-      .from('uploads')
-      .createSignedUrl(path, 60)
-
-    if (error) {
-
-      console.error("Signed URL error:", error)
-
-      if (
-        error.message.includes("not found") ||
-        error.message.includes("Object not found")
-      ) {
-        throw new Error("FILE_EXPIRED")
-      }
-
-      throw error
-    }
-
-    return data.signedUrl
-  }
-
-  const downloadFiles = async (submission) => {
-
-    let icFrontBlob = null
-    let icBackBlob = null
-    let bankSlipBlob = null
-
-    if (submission.ic_front_path) {
-      const url = await getFileUrl(submission.ic_front_path)
-      icFrontBlob = await (await fetch(url)).blob()
-    }
-
-
-    if (submission.ic_back_path) {
-      const url = await getFileUrl(submission.ic_back_path)
-      icBackBlob = await (await fetch(url)).blob()
-    }
-
-
-    if (submission.bank_slip_path) {
-      const url = await getFileUrl(submission.bank_slip_path)
-
-      const response = await fetch(url)
-
-      const blob = await response.blob()
-
-      bankSlipBlob = new File(
-        [blob],
-        submission.bank_slip_path,
-        {
-          type: blob.type
-        }
-      )
-
-      console.log(
-        "Bank slip type:",
-        bankSlipBlob.type,
-        bankSlipBlob.name
-      )
-    }
-
-    return {
-      icFrontBlob,
-      icBackBlob,
-      bankSlipBlob
-    }
-  }
-
-  const embedImage = async (pdfDoc, blob) => {
-
-    const bytes = await blob.arrayBuffer()
-
-    try {
-      // Try PNG first
-      return await pdfDoc.embedPng(bytes)
-
-    } catch (pngError) {
-
-      // If not PNG, try JPG
-      return await pdfDoc.embedJpg(bytes)
-
-    }
-  }
-
-  const createPDF = async (files) => {
-
-    const pdfDoc = await PDFDocument.create()
-
-
-    // A4 size
-    const A4_WIDTH = 595
-    const A4_HEIGHT = 842
-
-
-    /*
-      PAGE 1
-      IC Front + IC Back
-    */
-
-    let page1 = null
-
-    if (files.icFrontBlob || files.icBackBlob) {
-
-      page1 = pdfDoc.addPage([
-        A4_WIDTH,
-        A4_HEIGHT
-      ])
-
-    }
-
-
-    // IC Front
-    if (files.icFrontBlob) {
-
-      const icFrontImage = await embedImage(
-        pdfDoc,
-        files.icFrontBlob
-      )
-
-      const frontWidth = 400
-      const frontHeight =
-        (icFrontImage.height / icFrontImage.width) * frontWidth
-
-
-      page1?.drawImage(icFrontImage, {
-        x: (A4_WIDTH - frontWidth) / 2,
-        y: (A4_HEIGHT / 2) + 100,
-        width: frontWidth,
-        height: frontHeight
-      })
-
-    }
-
-    // IC Back
-    if (files.icBackBlob) {
-
-      const icBackImage = await embedImage(
-        pdfDoc,
-        files.icBackBlob
-      )
-
-      const backWidth = 400
-      const backHeight =
-        (icBackImage.height / icBackImage.width) * backWidth
-
-
-      page1?.drawImage(icBackImage, {
-        x: (A4_WIDTH - backWidth) / 2,
-        y: 100,
-        width: backWidth,
-        height: backHeight
-      })
-
-    }
-
-
-    // watermark
-    const boldFont = await pdfDoc.embedFont(
-      StandardFonts.HelveticaBold
-    )
-
-    if (files.icFrontBlob) {
-
-      page1?.drawText("FOR NIRVANA ASIA", {
-        x: 395,
-        y: 815,
-        size: 23,
-        font: boldFont,
-        color: rgb(0.3, 0.3, 0.3),
-        opacity: 0.3,
-        rotate: degrees(-45)
-      })
-
-
-      page1?.drawText("REFERENCE ONLY", {
-        x: 385,
-        y: 795,
-        size: 23,
-        font: boldFont,
-        color: rgb(0.3, 0.3, 0.3),
-        opacity: 0.3,
-        rotate: degrees(-45)
-      })
-
-    }
-
-    if (files.icBackBlob) {
-      page1?.drawText("FOR NIRVANA ASIA", {
-        x: 395,
-        y: 390,
-        size: 23,
-        font: boldFont,
-        color: rgb(0.3, 0.3, 0.3),
-        opacity: 0.3,
-        rotate: degrees(-45)
-      })
-
-      page1?.drawText("REFERENCE ONLY", {
-        x: 385,
-        y: 370,
-        size: 23,
-        font: boldFont,
-        color: rgb(0.3, 0.3, 0.3),
-        opacity: 0.3,
-        rotate: degrees(-45)
-      })
-    }
-
-
-    /*
-      PAGE 2
-      Bank Slip PDF
-    */
-
-    if (files.bankSlipBlob) {
-
-      const type = files.bankSlipBlob.type
-      const filename = files.bankSlipBlob.name?.toLowerCase() || ""
-
-      console.log(
-        "BANK DECISION:",
-        {
-          type,
-          filename
-        }
-      )
-
-      if (
-        filename.endsWith(".pdf")
-      ) {
-
-        const bankPdfBytes = await files.bankSlipBlob.arrayBuffer()
-
-        const bankPdf = await PDFDocument.load(bankPdfBytes)
-
-        const copiedPages = await pdfDoc.copyPages(
-          bankPdf,
-          bankPdf.getPageIndices()
-        )
-
-        copiedPages.forEach((page) => {
-          pdfDoc.addPage(page)
-        })
-
-      } else if (
-        type.startsWith("image/") ||
-        filename.endsWith(".jpg") ||
-        filename.endsWith(".jpeg") ||
-        filename.endsWith(".png")
-      ) {
-
-        const bankImage = await embedImage(
-          pdfDoc,
-          files.bankSlipBlob
-        )
-
-        const page = pdfDoc.addPage([
-          A4_WIDTH,
-          A4_HEIGHT
-        ])
-
-        const width = 400
-        const height =
-          (bankImage.height / bankImage.width) * width
-
-        page.drawImage(bankImage, {
-          x: (A4_WIDTH - width) / 2,
-          y: (A4_HEIGHT - height) / 2,
-          width,
-          height
-        })
-
-      }
-
-    }
-
-    const pages = pdfDoc.getPages()
-
-    // Only watermark bank slip pages
-    const bankSlipStartPage = files.icFrontBlob || files.icBackBlob ? 1 : 0
-
-    for (let i = bankSlipStartPage; i < pages.length; i++) {
-
-      const page = pages[i]
-
-      const { width, height } = page.getSize()
-
-      const text = "FOR NIRVANA ASIA\nREFERENCE ONLY"
-
-      const fontSize = 60
-
-      page.drawText(text, {
-        x: width / 2 - 200,
-        y: height / 2 - 200,
-        size: fontSize,
-        font: boldFont,
-        color: rgb(0.3, 0.3, 0.3),
-        opacity: 0.3,
-        lineHeight: 80,
-        rotate: degrees(45)
-      })
-
-    }
-
-
-    const finalPdf = await pdfDoc.save()
-
-    return finalPdf
-  }
-
-  const deleteUploadedFiles = async (submission) => {
-
-    console.log("DELETE FUNCTION CALLED", submission)
-
-    const { data: updateData, error: updateError } = await supabase
-      .from('submissions')
-      .update({
-        status: "Printed",
-        printed_from: kioskName,
-        printed_date: new Date().toISOString()
-      })
-      .eq(
-        "id",
-        submission.id
-      )
-      .select()
-
-
-    console.log("UPDATE RESULT:", {
-      updateData,
-      updateError
-    })
-
-
-    if (updateError || !updateData?.length) {
-      console.error("Update status failed:", updateError)
-      throw new Error("STATUS_UPDATE_FAILED")
-    }
-
-
-    const files = [
-      submission.ic_front_path,
-      submission.ic_back_path,
-      submission.bank_slip_path
-    ].filter(Boolean)
-
-
-    console.log("Attempting to delete:", files)
-
-    const storage = supabase.storage.from('uploads')
-
-    const { data: deleteResult, error: deleteError } = await storage.remove(files)
-
-    if (deleteError) {
-      console.error("Delete failed:", deleteError)
-    }
-
-    console.log("BULK DELETE RESULT:", {
-      deleteResult,
-      deleteError
-    })
-
-    console.log("Storage delete test completed")
-
-  }
-
-
-
-  function uint8ToBase64(bytes) {
-    let binary = ""
-
-    const chunkSize = 0x8000
-
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(
-        ...bytes.subarray(i, i + chunkSize)
-      )
-    }
-
-    return btoa(binary)
   }
 
   const handleDownload = async (submission) => {
@@ -536,62 +162,26 @@ function App() {
 
       if (window.electronAPI) {
 
-        let printSuccess = false
+        setLoadingText("Sending to printer...(4/5)")
 
-
-        if (PRINT_MODE === "TEST") {
-
-          console.log("TEST MODE - open PDF")
-
-          const blob = new Blob(
-            [pdf],
-            { type: "application/pdf" }
+        const printSuccess =
+          await printPDF(
+            pdf,
+            PRINT_MODE
           )
 
-          const url = URL.createObjectURL(blob)
-
-          window.open(url, "_blank")
-
-          printSuccess = false
-
-        }
-
-
-        if (PRINT_MODE === "SILENT") {
-
-          console.log("REAL SILENT PRINT")
-
-          setLoadingText("Sending to printer...(4/5)")
-
-          console.time("BASE64_CONVERSION")
-
-          const base64 = uint8ToBase64(
-            new Uint8Array(pdf)
-          )
-
-          console.timeEnd("BASE64_CONVERSION")
-
-          console.time("PRINT_DURATION")
-
-          printSuccess = await window.electronAPI.printPDF(base64)
-
-          console.timeEnd("PRINT_DURATION")
-
-          console.log("PRINT RESULT:", printSuccess)
-
-        }
-
-        if (!PRINT_MODE) {
-
-          console.warn("PRINT_MODE not set")
-
-        }
-
+        console.log(
+          "PRINT RESULT:",
+          printSuccess
+        )
 
         if (printSuccess) {
 
           if (PRINT_MODE === "SILENT") {
-            await deleteUploadedFiles(submission)
+            await deleteUploadedFiles(
+              submission,
+              kioskName
+            )
           }
 
           setMessageType("success")
@@ -602,7 +192,6 @@ function App() {
               : "Document sent to printer. Please wait..."
           )
 
-
         } else {
 
           setMessageType("error")
@@ -611,23 +200,24 @@ function App() {
 
         }
 
-
         setTimeout(() => {
           setMessage('')
           setMessageType('')
         }, 5000)
 
-
       } else {
 
-        console.log("Browser mode - opening PDF")
+        console.log(
+          "Browser mode - opening PDF"
+        )
 
         const blob = new Blob(
           [pdf],
           { type: "application/pdf" }
         )
 
-        const url = URL.createObjectURL(blob)
+        const url =
+          URL.createObjectURL(blob)
 
         window.open(url)
 
@@ -683,10 +273,16 @@ function App() {
               Scan QR Code to upload your document
             </h2>
 
-            <QRCodeCanvas
-              value="https://icbankslip-kiosk.vercel.app"
-              size={280}
-            />
+            <a
+              href="https://icbankslip-kiosk.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <QRCodeCanvas
+                value="https://icbankslip-kiosk.vercel.app"
+                size={280}
+              />
+            </a>
 
             <p>
               Scan using your phone camera
